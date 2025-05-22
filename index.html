@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chatbot dengan API</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .chat-container {
+            width: 450px;
+            height: 650px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+
+        .chat-header h2 {
+            margin: 0;
+            font-size: 1.5em;
+        }
+
+        .api-selector {
+            margin-top: 10px;
+        }
+
+        .api-selector select {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+        }
+
+        .api-selector select option {
+            background: #667eea;
+            color: white;
+        }
+
+        .status-indicator {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            width: 10px;
+            height: 10px;
+            background: #4CAF50;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user {
+            text-align: right;
+        }
+
+        .message.bot {
+            text-align: left;
+        }
+
+        .message-bubble {
+            display: inline-block;
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+
+        .user .message-bubble {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .bot .message-bubble {
+            background: white;
+            color: #333;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .error-message {
+            background: #ffebee !important;
+            color: #c62828 !important;
+            border-left: 4px solid #c62828;
+        }
+
+        .chat-input {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #eee;
+        }
+
+        .api-config {
+            margin-bottom: 15px;
+        }
+
+        .api-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 15px;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .message-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 25px;
+            outline: none;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .message-input:focus {
+            border-color: #667eea;
+        }
+
+        .send-button {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s ease;
+        }
+
+        .send-button:hover {
+            transform: scale(1.05);
+        }
+
+        .send-button:active {
+            transform: scale(0.95);
+        }
+
+        .send-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .typing-indicator {
+            display: none;
+            text-align: left;
+            margin-bottom: 15px;
+        }
+
+        .typing-dots {
+            display: inline-block;
+            background: white;
+            padding: 12px 16px;
+            border-radius: 18px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #999;
+            margin: 0 2px;
+            animation: typing 1.4s infinite;
+        }
+
+        .dot:nth-child(2) { animation-delay: 0.2s; }
+        .dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-10px); }
+        }
+
+        .welcome-message {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 10px;
+        }
+
+        .toggle-config {
+            font-size: 12px;
+            color: #667eea;
+            cursor: pointer;
+            text-decoration: underline;
+            margin-bottom: 10px;
+        }
+
+        .config-hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h2>AI Chatbot dengan API</h2>
+            <div class="api-selector">
+                <select id="apiProvider">
+                    <option value="groq">Groq API (Gratis)</option>
+                    <option value="openai">OpenAI GPT</option>
+                    <option value="huggingface">Hugging Face</option>
+                    <option value="cohere">Cohere</option>
+                    <option value="local">Local/Fallback</option>
+                </select>
+            </div>
+            <div class="status-indicator"></div>
+        </div>
+        
+        <div class="chat-messages" id="chatMessages">
+            <div class="welcome-message">
+                🤖 <strong>AI Chatbot dengan API</strong><br>
+                Pilih API provider di atas, masukkan API key Anda, dan mulai mengobrol!<br>
+                <small>💡 Tip: Groq API gratis dan cepat untuk testing</small>
+            </div>
+        </div>
+        
+        <div class="typing-indicator" id="typingIndicator">
+            <div class="typing-dots">
+                <span class="dot"></span>
+                <span class="dot"></span>
+                <span class="dot"></span>
+            </div>
+        </div>
+        
+        <div class="chat-input">
+            <div class="toggle-config" id="toggleConfig">⚙️ Konfigurasi API</div>
+            <div class="api-config" id="apiConfig">
+                <input type="password" id="apiKey" class="api-input" placeholder="Masukkan API Key Anda...">
+                <input type="text" id="customEndpoint" class="api-input" placeholder="Custom Endpoint (opsional)" style="display:none;">
+            </div>
+            <div class="input-group">
+                <input type="text" id="messageInput" class="message-input" placeholder="Ketik pesan Anda..." autocomplete="off">
+                <button id="sendButton" class="send-button">Kirim</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class APIBot {
+            constructor() {
+                this.apiProviders = {
+                    groq: {
+                        name: 'Groq',
+                        endpoint: 'https://api.groq.com/openai/v1/chat/completions',
+                        model: 'llama3-8b-8192',
+                        headers: (key) => ({
+                            'Authorization': `Bearer ${key}`,
+                            'Content-Type': 'application/json'
+                        })
+                    },
+                    openai: {
+                        name: 'OpenAI',
+                        endpoint: 'https://api.openai.com/v1/chat/completions',
+                        model: 'gpt-3.5-turbo',
+                        headers: (key) => ({
+                            'Authorization': `Bearer ${key}`,
+                            'Content-Type': 'application/json'
+                        })
+                    },
+                    huggingface: {
+                        name: 'Hugging Face',
+                        endpoint: 'https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium',
+                        headers: (key) => ({
+                            'Authorization': `Bearer ${key}`,
+                            'Content-Type': 'application/json'
+                        })
+                    },
+                    cohere: {
+                        name: 'Cohere',
+                        endpoint: 'https://api.cohere.ai/v1/generate',
+                        headers: (key) => ({
+                            'Authorization': `Bearer ${key}`,
+                            'Content-Type': 'application/json'
+                        })
+                    }
+                };
+
+                this.fallbackResponses = [
+                    'Maaf, saya mengalami kesulitan menghubungi server AI. Coba lagi nanti ya!',
+                    'Koneksi ke API sedang bermasalah. Pastikan API key Anda benar.',
+                    'Hmm, sepertinya ada masalah teknis. Silakan periksa konfigurasi API Anda.',
+                    'Server AI sedang sibuk. Coba kirim pesan lagi dalam beberapa saat.'
+                ];
+
+                this.conversationHistory = [];
+                this.initializeChat();
+            }
+
+            initializeChat() {
+                this.chatMessages = document.getElementById('chatMessages');
+                this.messageInput = document.getElementById('messageInput');
+                this.sendButton = document.getElementById('sendButton');
+                this.typingIndicator = document.getElementById('typingIndicator');
+                this.apiProvider = document.getElementById('apiProvider');
+                this.apiKey = document.getElementById('apiKey');
+                this.customEndpoint = document.getElementById('customEndpoint');
+                this.toggleConfig = document.getElementById('toggleConfig');
+                this.apiConfig = document.getElementById('apiConfig');
+
+                this.sendButton.addEventListener('click', () => this.sendMessage());
+                this.messageInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.sendMessage();
+                    }
+                });
+
+                this.apiProvider.addEventListener('change', () => this.onApiProviderChange());
+                this.toggleConfig.addEventListener('click', () => this.toggleConfigVisibility());
+
+                this.messageInput.focus();
+                this.loadSettings();
+            }
+
+            toggleConfigVisibility() {
+                this.apiConfig.classList.toggle('config-hidden');
+                this.toggleConfig.textContent = this.apiConfig.classList.contains('config-hidden') 
+                    ? '⚙️ Tampilkan Konfigurasi API' 
+                    : '⚙️ Sembunyikan Konfigurasi';
+            }
+
+            onApiProviderChange() {
+                const provider = this.apiProvider.value;
+                this.customEndpoint.style.display = provider === 'custom' ? 'block' : 'none';
+                this.saveSettings();
+            }
+
+            saveSettings() {
+                localStorage.setItem('chatbot_settings', JSON.stringify({
+                    provider: this.apiProvider.value,
+                    apiKey: this.apiKey.value,
+                    customEndpoint: this.customEndpoint.value
+                }));
+            }
+
+            loadSettings() {
+                const settings = localStorage.getItem('chatbot_settings');
+                if (settings) {
+                    const parsed = JSON.parse(settings);
+                    this.apiProvider.value = parsed.provider || 'groq';
+                    this.apiKey.value = parsed.apiKey || '';
+                    this.customEndpoint.value = parsed.customEndpoint || '';
+                    this.onApiProviderChange();
+                }
+            }
+
+            async sendMessage() {
+                const message = this.messageInput.value.trim();
+                if (!message) return;
+
+                this.addMessage(message, 'user');
+                this.messageInput.value = '';
+                this.conversationHistory.push({ role: 'user', content: message });
+                
+                this.showTypingIndicator();
+                this.sendButton.disabled = true;
+
+                try {
+                    const response = await this.callAPI(message);
+                    this.hideTypingIndicator();
+                    this.addMessage(response, 'bot');
+                    this.conversationHistory.push({ role: 'assistant', content: response });
+                } catch (error) {
+                    this.hideTypingIndicator();
+                    this.addMessage(this.getErrorMessage(error), 'bot', true);
+                } finally {
+                    this.sendButton.disabled = false;
+                    this.saveSettings();
+                }
+            }
+
+            async callAPI(message) {
+                const provider = this.apiProvider.value;
+                const apiKey = this.apiKey.value.trim();
+
+                if (provider === 'local' || !apiKey) {
+                    return this.getLocalResponse(message);
+                }
+
+                const config = this.apiProviders[provider];
+                if (!config) {
+                    throw new Error('Provider tidak ditemukan');
+                }
+
+                const endpoint = this.customEndpoint.value || config.endpoint;
+                
+                let requestBody;
+                
+                if (provider === 'groq' || provider === 'openai') {
+                    requestBody = {
+                        model: config.model,
+                        messages: [
+                            { role: 'system', content: 'Anda adalah asisten AI yang membantu dan ramah. Jawab dalam bahasa Indonesia kecuali diminta sebaliknya.' },
+                            ...this.conversationHistory.slice(-10), // Batasi history
+                            { role: 'user', content: message }
+                        ],
+                        max_tokens: 500,
+                        temperature: 0.7
+                    };
+                } else if (provider === 'huggingface') {
+                    requestBody = {
+                        inputs: message,
+                        parameters: {
+                            max_length: 200,
+                            temperature: 0.7
+                        }
+                    };
+                } else if (provider === 'cohere') {
+                    requestBody = {
+                        prompt: message,
+                        max_tokens: 200,
+                        temperature: 0.7
+                    };
+                }
+
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: config.headers(apiKey),
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`API Error ${response.status}: ${errorText}`);
+                }
+
+                const data = await response.json();
+                return this.parseAPIResponse(data, provider);
+            }
+
+            parseAPIResponse(data, provider) {
+                try {
+                    if (provider === 'groq' || provider === 'openai') {
+                        return data.choices[0].message.content.trim();
+                    } else if (provider === 'huggingface') {
+                        return data.generated_text || data[0]?.generated_text || 'Tidak ada respons';
+                    } else if (provider === 'cohere') {
+                        return data.generations[0].text.trim();
+                    }
+                } catch (error) {
+                    throw new Error('Format respons API tidak valid');
+                }
+                
+                return 'Respons tidak dapat diproses';
+            }
+
+            getLocalResponse(message) {
+                const responses = {
+                    'halo|hai|hi|hello': 'Halo! Ada yang bisa saya bantu?',
+                    'apa kabar|how are you': 'Saya baik-baik saja, terima kasih! Bagaimana dengan Anda?',
+                    'terima kasih|thanks': 'Sama-sama! Senang bisa membantu!',
+                    'bye|dadah|selamat tinggal': 'Sampai jumpa! Semoga hari Anda menyenangkan!',
+                    'siapa|nama': 'Saya adalah AI Chatbot yang menggunakan berbagai API untuk memberikan respons yang lebih baik.',
+                    'bantuan|help': 'Saya bisa membantu menjawab pertanyaan Anda. Untuk hasil terbaik, silakan konfigurasi API key terlebih dahulu.'
+                };
+
+                const lowerMessage = message.toLowerCase();
+                for (const [pattern, response] of Object.entries(responses)) {
+                    if (pattern.split('|').some(keyword => lowerMessage.includes(keyword))) {
+                        return response;
+                    }
+                }
+
+                return 'Untuk mendapatkan respons AI yang lebih baik, silakan masukkan API key Anda di konfigurasi di atas. Saat ini saya menggunakan respons lokal yang terbatas.';
+            }
+
+            getErrorMessage(error) {
+                console.error('API Error:', error);
+                
+                if (error.message.includes('401')) {
+                    return '❌ API Key tidak valid. Silakan periksa kembali API key Anda.';
+                } else if (error.message.includes('429')) {
+                    return '⏳ Rate limit tercapai. Silakan tunggu sebentar sebelum mencoba lagi.';
+                } else if (error.message.includes('403')) {
+                    return '🚫 Akses ditolak. Periksa permissions API key Anda.';
+                } else if (error.message.includes('500')) {
+                    return '🔧 Server API mengalami masalah. Coba lagi nanti.';
+                }
+                
+                return this.fallbackResponses[Math.floor(Math.random() * this.fallbackResponses.length)];
+            }
+
+            addMessage(message, sender, isError = false) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${sender}`;
+                
+                const bubbleDiv = document.createElement('div');
+                bubbleDiv.className = `message-bubble ${isError ? 'error-message' : ''}`;
+                bubbleDiv.textContent = message;
+                
+                messageDiv.appendChild(bubbleDiv);
+                this.chatMessages.appendChild(messageDiv);
+                
+                this.scrollToBottom();
+            }
+
+            showTypingIndicator() {
+                this.typingIndicator.style.display = 'block';
+                this.scrollToBottom();
+            }
+
+            hideTypingIndicator() {
+                this.typingIndicator.style.display = 'none';
+            }
+
+            scrollToBottom() {
+                this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+            }
+        }
+
+        // Inisialisasi bot ketika halaman dimuat
+        document.addEventListener('DOMContentLoaded', () => {
+            new APIBot();
+        });
+    </script>
+</body>
+</html>
